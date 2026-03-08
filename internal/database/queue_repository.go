@@ -342,6 +342,32 @@ func (r *QueueRepository) CountByStatus(status string) (int64, error) {
 	return count, nil
 }
 
+// GetQueueStats 返回队列的所有状态统计聚合
+func (r *QueueRepository) GetQueueStats() (total, pending, downloading, paused, completed, failed int64, err error) {
+	query := `
+		SELECT 
+			COUNT(*) as total,
+			SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as pending,
+			SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as downloading,
+			SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as paused,
+			SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as completed,
+			SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as failed
+		FROM download_queue
+	`
+	err = r.db.QueryRow(query,
+		QueueStatusPending,
+		QueueStatusDownloading,
+		QueueStatusPaused,
+		QueueStatusCompleted,
+		QueueStatusFailed,
+	).Scan(&total, &pending, &downloading, &paused, &completed, &failed)
+
+	if err != nil {
+		return 0, 0, 0, 0, 0, 0, fmt.Errorf("failed to get aggregated queue stats: %w", err)
+	}
+	return total, pending, downloading, paused, completed, failed, nil
+}
+
 // GetNextPending 获取下一个待处理的队列项目
 func (r *QueueRepository) GetNextPending() (*QueueItem, error) {
 	query := `
