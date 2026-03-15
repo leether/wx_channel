@@ -228,7 +228,7 @@ func setDefaults() {
 	viper.SetDefault("show_log_button", false)
 	viper.SetDefault("enable_log_interception", false) // 默认禁用日志拦截以节省内存
 
-	viper.SetDefault("cloud_enabled", true) // 默认不启用云端管理
+	viper.SetDefault("cloud_enabled", false) // 默认不启用云端管理
 	viper.SetDefault("cloud_hub_url", "ws://wx.dujulaoren.com/ws/client")
 	viper.SetDefault("cloud_secret", "")
 	viper.SetDefault("machine_id", GetMachineID())
