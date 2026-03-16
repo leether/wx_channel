@@ -110,22 +110,82 @@ function __get_home_download_buttons__() {
   return btn ? [btn] : [];
 }
 
+function __is_direct_video_home_page() {
+  try {
+    var currentUrl = new URL(window.location.href);
+    if (!currentUrl.pathname.includes('/pages/home')) return false;
+    var hasOidNid = !!(currentUrl.searchParams.get('oid') && currentUrl.searchParams.get('nid'));
+    var hasContextId = !!currentUrl.searchParams.get('context_id');
+    return hasOidNid || hasContextId;
+  } catch (e) {
+    try {
+      return (/[?&]oid=/.test(window.location.href) && /[?&]nid=/.test(window.location.href)) ||
+        /[?&]context_id=/.test(window.location.href);
+    } catch (err) {
+      return false;
+    }
+  }
+}
+
+function __should_use_feed_mode_for_home_page() {
+  try {
+    var currentUrl = new URL(window.location.href);
+    if (!currentUrl.pathname.includes('/pages/home')) return false;
+
+    var hasOidNid = !!(currentUrl.searchParams.get('oid') && currentUrl.searchParams.get('nid'));
+    var fromSubPage = currentUrl.searchParams.get('fromSubPage') || '';
+    var isFlowVideo = currentUrl.searchParams.get('tabId') === 'flow' && currentUrl.searchParams.has('feed_lab');
+
+    return hasOidNid || fromSubPage === 'profile' || isFlowVideo;
+  } catch (e) {
+    return /[?&]oid=/.test(window.location.href) ||
+      /[?&]fromSubPage=profile/.test(window.location.href) ||
+      (/[?&]tabId=flow/.test(window.location.href) && /[?&]feed_lab=/.test(window.location.href));
+  }
+}
+
+function __can_enable_home_download() {
+  if (__is_direct_video_home_page()) {
+    var sharedProfile = __get_current_home_profile();
+    if (!sharedProfile) return true;
+    return sharedProfile.canDownload !== false && sharedProfile.type !== 'live';
+  }
+
+  if (__current_tab_type__ === 'live-list' || __current_tab_type__ === 'unsupported') {
+    var currentProfile = __get_current_home_profile();
+    if (currentProfile && currentProfile.canDownload !== false && currentProfile.type !== 'live') {
+      return true;
+    }
+    return false;
+  }
+
+  var profile = __get_current_home_profile();
+  if (profile && profile.canDownload === false) {
+    return false;
+  }
+
+  return __current_tab_type__ === 'video-player';
+}
+
 function __update_download_button_state() {
   var buttons = __get_home_download_buttons__();
   if (buttons.length === 0) return;
+  var canDownload = __can_enable_home_download();
 
   for (var i = 0; i < buttons.length; i++) {
     var downloadBtn = buttons[i];
     var icon = downloadBtn.querySelector('.wx-home-download-icon');
     var label = downloadBtn.querySelector('.wx-home-download-label');
 
-    if (__current_tab_type__ === 'video-player') {
+    if (canDownload) {
       downloadBtn.style.opacity = '1';
       downloadBtn.style.cursor = 'pointer';
       downloadBtn.style.pointerEvents = 'auto';
       if (icon) icon.style.color = 'rgba(255,255,255,0.94)';
       if (label) label.style.color = 'rgba(255,255,255,0.92)';
-      downloadBtn.title = __get_tab_description(__current_tab__);
+      downloadBtn.title = __is_direct_video_home_page() && __current_tab_type__ !== 'video-player'
+        ? '下载当前直达视频'
+        : __get_tab_description(__current_tab__);
     } else {
       downloadBtn.style.opacity = '0.55';
       downloadBtn.style.cursor = 'not-allowed';
@@ -143,7 +203,7 @@ function __update_download_button_state() {
 }
 
 function __handle_home_download_click() {
-  if (__current_tab_type__ !== 'video-player') {
+  if (!__can_enable_home_download()) {
     __wx_log({ msg: '当前模块暂不支持下载' });
     return;
   }
@@ -727,6 +787,14 @@ async function insert_download_btn() {
 
   // Home页面
   if (pathname.includes('/pages/home')) {
+    if (__should_use_feed_mode_for_home_page()) {
+      console.log('[home.js] 检测到Home路径下的详情页模式，切换为Feed逻辑处理');
+      if (typeof __insert_download_btn_to_feed_page === 'function') {
+        var feedModeSuccess = await __insert_download_btn_to_feed_page();
+        if (feedModeSuccess) return;
+      }
+    }
+
     console.log('[home.js] 检测到Home页面');
     __start_tab_monitor();
     __start_home_slide_monitor();

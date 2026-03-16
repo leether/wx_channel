@@ -241,9 +241,9 @@ func (h *ScriptHandler) buildInjectedScripts(path string) string {
 
 	switch path {
 	case "/web/pages/home":
-		// Home页面：注入视频缓存监控脚本
-		pageSpecificScripts = h.getVideoCacheNotificationScript()
-		utils.LogFileInfo("[脚本注入] Home页面 - 注入事件系统和视频缓存监控脚本")
+		// Home页面：新版部分链接会渲染成详情页模式，因此同时注入评论采集脚本
+		pageSpecificScripts = h.getVideoCacheNotificationScript() + h.getCommentCaptureScript()
+		utils.LogFileInfo("[脚本注入] Home页面 - 注入视频缓存监控和评论采集脚本")
 
 	case "/web/pages/profile":
 		// Profile页面（视频列表）：不需要特定脚本
